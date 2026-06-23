@@ -1,8 +1,7 @@
 services:
   db:
     build:
-      context: ./signal-scope-db
-      dockerfile: Dockerfile
+      context: https://github.com/mazoochian/signal-scope-db.git#main
     image: signal-scope-db:latest
     container_name: signal-scope-db
     restart: unless-stopped
@@ -21,8 +20,7 @@ services:
 
   api:
     build:
-      context: ./signal-scope-be
-      dockerfile: Dockerfile
+      context: https://github.com/mazoochian/signal-scope-be.git#main
     image: signal-scope-api:latest
     container_name: signal-scope-api
     restart: unless-stopped
@@ -49,10 +47,8 @@ services:
 
   frontend:
     build:
-      context: ./signal-scope-fe
-      dockerfile: Dockerfile
+      context: https://github.com/mazoochian/signal-scope-fe.git#main
       args:
-        # Public URL the browser uses to reach the API
         NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:4000}"
     image: signal-scope-fe:latest
     container_name: signal-scope-fe
@@ -61,7 +57,6 @@ services:
       - "${FE_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
-      # Internal Docker hostname for server-side API calls (SSR)
       API_URL: "http://api:4000"
     depends_on:
       api:

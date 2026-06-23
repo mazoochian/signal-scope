@@ -11,3 +11,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Sub-projects live in their own repos
+/signal-scope-be/
+/signal-scope-fe/
+/signal-scope-db/
