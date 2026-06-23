@@ -1,0 +1,71 @@
+services:
+  db:
+    build:
+      context: ./signal-scope-db
+      dockerfile: Dockerfile
+    image: signal-scope-db:latest
+    container_name: signal-scope-db
+    restart: unless-stopped
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: signalscope
+      POSTGRES_USER: signalscope
+      POSTGRES_PASSWORD: "${DB_PASS:-signalscope}"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "signalscope", "-d", "signalscope"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  api:
+    build:
+      context: ./signal-scope-be
+      dockerfile: Dockerfile
+    image: signal-scope-api:latest
+    container_name: signal-scope-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      CORS_ORIGIN: "${CORS_ORIGIN:-http://localhost:3000}"
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: signalscope
+      DB_USER: signalscope
+      DB_PASS: "${DB_PASS:-signalscope}"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./signal-scope-fe
+      dockerfile: Dockerfile
+      args:
+        # Public URL the browser uses to reach the API
+        NEXT_PUBLIC_API_URL: "${NEXT_PUBLIC_API_URL:-http://localhost:4000}"
+    image: signal-scope-fe:latest
+    container_name: signal-scope-fe
+    restart: unless-stopped
+    ports:
+      - "${FE_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      # Internal Docker hostname for server-side API calls (SSR)
+      API_URL: "http://api:4000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pg_data:
