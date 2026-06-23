@@ -1,36 +1,140 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# signal-scope-fe
 
-## Getting Started
+Next.js 15 frontend for **Signal Scope** — a network management system (NMS) dashboard.
 
-First, run the development server:
+Displays real-time device health, alerts, topology maps, wireless coverage, telemetry, inventory, and service-level data sourced from the [`signal-scope-be`](https://github.com/mazoochian/signal-scope-be) API.
+
+---
+
+## Features
+
+- Live KPI strip and WAN throughput chart (2 s polling via Ornstein-Uhlenbeck simulation)
+- Device inventory with add/delete, per-device CPU and memory history
+- Active alerts with severity breakdown and root-cause chaining
+- Interactive topology map (SVG canvas, node/edge status colouring)
+- Wireless AP grid, SSID distribution, and client trend chart
+- NetFlow telemetry, application breakdown, and gRPC subscription table
+- Hardware inventory with warranty and end-of-support tracking
+- Network discovery job progress and recently-found devices
+- Business service health with SLA percentages
+- Notification centre with unread badge and mark-all-read
+- Offline / backend-unavailable error boundary with retry
+- Custom 404 page
+
+---
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Framework | Next.js 15 (App Router, React Server Components) |
+| Styling | Tailwind CSS + shadcn/ui |
+| Icons | Lucide React |
+| Data fetching | `fetch` with `cache: 'no-store'` + `usePoller` hook |
+
+---
+
+## Prerequisites
+
+- Node.js 22+
+- A running instance of [`signal-scope-be`](https://github.com/mazoochian/signal-scope-be) (defaults to `http://localhost:4000`)
+
+---
+
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Set `NEXT_PUBLIC_API_URL` if the backend is not on `localhost:4000`:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+NEXT_PUBLIC_API_URL=http://192.168.1.10:4000 npm run dev
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Environment variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Variable | Default | Description |
+|---|---|---|
+| `NEXT_PUBLIC_API_URL` | `http://localhost:4000` | URL the **browser** uses to reach the API. Baked in at build time. |
+| `API_URL` | value of `NEXT_PUBLIC_API_URL` | URL the **server** uses for SSR fetches. Override to the internal Docker hostname (e.g. `http://api:4000`). |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Docker
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Build the image
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_API_URL=http://<your-server-ip>:4000 \
+  -t signal-scope-fe:latest .
+```
+
+### Run standalone
+
+```bash
+docker run -p 3000:3000 \
+  -e API_URL=http://<api-host>:4000 \
+  signal-scope-fe:latest
+```
+
+### Docker Compose (recommended)
+
+Use the root [`signal-scope`](https://github.com/mazoochian/signal-scope) compose file which starts the database, API, and frontend together:
+
+```bash
+git clone https://github.com/mazoochian/signal-scope.git
+cd signal-scope
+
+cp .env.example .env        # edit NEXT_PUBLIC_API_URL and DB_PASS
+./scripts/build.sh          # build all three Docker images
+./scripts/deploy.sh         # docker compose up -d
+```
+
+The frontend will be available at **http://localhost:3000**.
+
+---
+
+## Project structure
+
+```
+app/
+  page.tsx         # Overview dashboard
+  devices/         # Device inventory
+  alerts/          # Active alerts
+  topology/        # Network topology map
+  wireless/        # Wireless overview
+  telemetry/       # NetFlow / gRPC telemetry
+  inventory/       # Hardware inventory
+  discovery/       # Network discovery
+  services/        # Business service health
+  error.tsx        # Global error boundary (handles backend offline)
+  not-found.tsx    # 404 page
+components/
+  layout/          # Sidebar, top-bar, page-header, poll-interval picker
+  charts/          # Sparkline, heat-strip, mini-bars (custom SVG)
+  overview/        # Live KPI strip, WAN chart, resource panels
+  ui/              # Notification centre, status pill, panel wrapper
+lib/
+  api.ts           # apiFetch — error tagging, SSR/CSR URL split
+  use-poller.ts    # Polling hook with configurable interval
+  polling-context  # React context for the interval picker
+```
+
+---
+
+## Scripts
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Development server with hot-reload |
+| `npm run build` | Production build |
+| `npm run start` | Start production server |
+| `npm run lint` | ESLint check |
