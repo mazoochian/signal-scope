@@ -18,6 +18,20 @@ services:
       retries: 5
       start_period: 30s
 
+  redis:
+    image: redis:7-alpine
+    container_name: signal-scope-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   api:
     build:
       context: https://github.com/mazoochian/signal-scope-be.git#main
@@ -35,8 +49,17 @@ services:
       DB_NAME: signalscope
       DB_USER: signalscope
       DB_PASS: "${DB_PASS:-signalscope}"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      # Required — device credentials are encrypted at rest with this key.
+      # The API refuses to boot without it (see AUDIT-REPORT.md C1: never
+      # silently default a secret). Generate with:
+      #   openssl rand -hex 32
+      CREDENTIAL_ENC_KEY: "${CREDENTIAL_ENC_KEY:?CREDENTIAL_ENC_KEY must be set — see .env.example}"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/overview"]
@@ -64,3 +87,4 @@ services:
 
 volumes:
   pg_data:
+  redis_data:

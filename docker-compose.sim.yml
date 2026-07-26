@@ -1,0 +1,58 @@
+# Docker-based device simulator overlay — SNMP + CLI stub servers for
+# testing signal-scope-be's device-control module without a live device or
+# EVE-NG. Kept as a separate overlay file so it never ships with a real
+# deployment: `docker compose -f docker-compose.yml -f docker-compose.sim.yml up`.
+#
+# NOTE: this environment's Docker daemon has no container-registry egress
+# (confirmed: `docker pull node:20-alpine` times out even though this host's
+# own `curl` reaches Docker Hub's HTTPS endpoint fine — specific to how the
+# daemon reaches the registry here, not a general connectivity gap). This
+# session's actual verification ran both simulators as plain `ts-node`
+# processes instead (see signal-scope-be/src/device-control/testing/ and
+# device-control/README.md) — genuinely tested that way, not merely
+# designed. This compose file is provided for a deployment environment that
+# does have registry egress; it has not been run end-to-end in this session.
+#
+# Both simulators are plain Node/TypeScript (net-snmp, ssh2) with no
+# external MIB/image dependencies beyond this repo's own devDependencies,
+# so the Dockerfile only needs a base Node image plus `npm ci`.
+
+services:
+  snmp-simulator:
+    build:
+      context: https://github.com/mazoochian/signal-scope-be.git#main
+      dockerfile_inline: |
+        FROM node:20-alpine
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm ci
+        COPY . .
+        EXPOSE 1161/udp
+        ENTRYPOINT ["npx", "ts-node", "src/device-control/testing/snmp-agent-simulator.ts"]
+        CMD ["1161", "public"]
+    container_name: signal-scope-snmp-sim
+    ports:
+      - "1161:1161/udp"
+
+  cli-stub-cisco:
+    build:
+      context: https://github.com/mazoochian/signal-scope-be.git#main
+      dockerfile_inline: |
+        FROM node:20-alpine
+        WORKDIR /app
+        COPY package*.json ./
+        RUN npm ci
+        COPY . .
+        EXPOSE 2201
+        EXPOSE 2301
+        ENTRYPOINT ["npx", "ts-node", "src/device-control/testing/cli-stub-server.ts"]
+        CMD ["cisco-ios", "2201", "2301"]
+    container_name: signal-scope-cli-stub-cisco
+    ports:
+      - "2201:2201"
+      - "2301:2301"
+
+  # Additional cli-stub-<vendor> services follow the same shape once each
+  # vendor's testing/scripts/<vendor>.script.ts exists — pass the vendor
+  # name as the CMD's first argument (see cli-stub-server.ts's
+  # SCRIPTS registry).
