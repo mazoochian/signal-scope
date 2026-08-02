@@ -56,13 +56,23 @@ services:
       # silently default a secret). Generate with:
       #   openssl rand -hex 32
       CREDENTIAL_ENC_KEY: "${CREDENTIAL_ENC_KEY:?CREDENTIAL_ENC_KEY must be set — see .env.example}"
+      # Required — signs/verifies session JWTs. The API refuses to boot
+      # without it (see AUDIT-REPORT.md C1: the previous hardcoded fallback
+      # was a complete auth bypass). Generate with: openssl rand -hex 32
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set — see .env.example}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:3000}"
+      API_PUBLIC_URL: "${API_PUBLIC_URL:-http://localhost:4000}"
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/overview"]
+      # /api/overview requires auth (dashboard:read) — the healthcheck sent
+      # no credentials, so it always 401'd and the frontend (which waits on
+      # this being healthy) could never start (see AUDIT-REPORT.md C3).
+      # /api/health is a dedicated public route that also pings the DB.
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/api/health"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -81,6 +91,10 @@ services:
     environment:
       NODE_ENV: production
       API_URL: "http://api:4000"
+      # Same secret as the api service — middleware.ts verifies the session
+      # JWT at the edge (AUDIT-REPORT.md M5) instead of just checking cookie
+      # presence, so it must match what the API signs tokens with.
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set — see .env.example}"
     depends_on:
       api:
         condition: service_healthy
