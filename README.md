@@ -120,3 +120,9 @@ Copy `.env.example` to `.env` and adjust as needed.
 ./scripts/build.sh --no-cache   # force full rebuild
 ./scripts/deploy.sh --build     # rebuild + restart in one step
 ```
+
+---
+
+## A note on authorship
+
+Portions of this codebase (across this repo and its sub-projects) were written with assistance from Claude (Anthropic). Commits aren't individually tagged with co-author trailers; this note covers that instead.
